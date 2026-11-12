@@ -60,7 +60,7 @@ func _ready() -> void:
 	smoke = "--smoke-test" in OS.get_cmdline_user_args()
 	movement_test = "--movement-test" in OS.get_cmdline_user_args()
 	preview = "--preview" in OS.get_cmdline_user_args()
-	mobile_ui = OS.has_feature("android") or "--mobile-ui" in OS.get_cmdline_user_args()
+	mobile_ui = OS.has_feature("android") or (OS.has_feature("web") and DisplayServer.is_touchscreen_available()) or "--mobile-ui" in OS.get_cmdline_user_args()
 	get_viewport().msaa_3d = Viewport.MSAA_2X if mobile_ui else Viewport.MSAA_4X
 	if mobile_ui: get_viewport().scaling_3d_scale = .75
 	ui_font = load("res://assets/fonts/Interface-Bold.ttf")
