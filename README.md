@@ -20,7 +20,7 @@ godot --headless --fixed-fps 60 --path Godot -- --movement-test
 
 ## 브라우저에서 바로 플레이
 
-**[Egg Dash 웹 게임 열기](https://egg-dash-play.precioushelix2.chatgpt.site)** → 게임 시작을 누르면 됩니다. PC와 휴대폰 터치 조작을 지원하며 휴대폰은 돌리지 않고 세로 화면에서도 플레이할 수 있습니다. **전체화면으로 시작** 버튼을 눌러 화면을 채울 수 있습니다. 설치가 필요하지 않습니다. 이 사이트는 소유자 전용으로 게시되어 ChatGPT 로그인이 필요할 수 있습니다. [웹 빌드 안내](Docs/Web.md)
+**[Egg Dash 웹 게임 열기](https://egg-dash-play.precioushelix2.chatgpt.site)** → 게임 시작을 누르면 됩니다. PC와 휴대폰 터치 조작을 지원하며 휴대폰은 돌리지 않고 세로 화면에서도 플레이할 수 있습니다. **가로 전체화면으로 시작** 버튼을 누르면 자동 가로 모드로 전환됩니다. 설치가 필요하지 않습니다. 이 사이트는 소유자 전용으로 게시되어 ChatGPT 로그인이 필요할 수 있습니다. [웹 빌드 안내](Docs/Web.md)
 
 ## Android APK
 
