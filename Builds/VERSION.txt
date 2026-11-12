@@ -1,2 +1,2 @@
-Egg Dash 0.3.0 - Reference Layout Rebuild
+Egg Dash 0.3.1 - Boundary Walking Fix
 Godot 4.6.3

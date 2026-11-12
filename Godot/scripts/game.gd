@@ -24,6 +24,8 @@ var clock: float = 0.0
 var save_clock: float = 0.0
 var gait: float = 0.0
 var paused: bool = false
+var movement_test: bool = false
+var movement_input := Vector3.ZERO
 var smoke: bool = false
 var smoke_failures: int = 0
 var hud: Label
@@ -54,6 +56,7 @@ var fox_home := Vector3(-10, 0, -9)
 
 func _ready() -> void:
 	smoke = "--smoke-test" in OS.get_cmdline_user_args()
+	movement_test = "--movement-test" in OS.get_cmdline_user_args()
 	preview = "--preview" in OS.get_cmdline_user_args()
 	get_viewport().msaa_3d = Viewport.MSAA_4X
 	ui_font = load("res://assets/fonts/Interface-Bold.ttf")
@@ -66,6 +69,8 @@ func _ready() -> void:
 		_add_pet(i)
 	if smoke:
 		call_deferred("_smoke_test")
+	if movement_test:
+		call_deferred("_movement_test")
 	if preview:
 		call_deferred("_prepare_preview")
 
@@ -168,11 +173,12 @@ func _build_world() -> void:
 	box("Expansion button",Vector3(-9,.14,13),Vector3(3,.25,3),"f9cd34")
 	sign_text("UPGRADE BASE\n[E] $250",Vector3(-9,2.4,13),.006)
 	# Segmented biomes along the central expedition route.
+	# Visual overlays share the baseplate collider: their thin edges must not block walking.
 	var biome_names := ["Forest", "Lake", "Desert", "Jungle", "Snow"]
 	var biome_colors := ["7bea20","64d5b5","f2d18a","49aa41","e1f0fa"]
 	for i in range(5):
 		var z: float = -21-i*41
-		var terrain := box(biome_names[i],Vector3(0,.02,z),Vector3(96,.08,39),biome_colors[i])
+		var terrain := box(biome_names[i],Vector3(0,.02,z),Vector3(96,.08,39),biome_colors[i],null,false)
 		stud_surface(terrain,biome_colors[i])
 		_ground_text(biome_names[i],Vector3(0,.1,z+13),1.1,Color.WHITE)
 		if i > 0:
@@ -241,7 +247,7 @@ func fence_segment(a: Vector3,b: Vector3) -> void:
 func _build_pen(center: Vector3,size: Vector2,own: bool) -> void:
 	var x := size.x/2
 	var z := size.y/2
-	var floor_mesh := box("Pen grass",center+Vector3(0,.025,0),Vector3(size.x,.07,size.y),"8cec2b")
+	var floor_mesh := box("Pen grass",center+Vector3(0,.025,0),Vector3(size.x,.07,size.y),"8cec2b",null,false)
 	stud_surface(floor_mesh,"8cec2b")
 	fence_segment(center+Vector3(-x,0,-z),center+Vector3(-x,0,z))
 	fence_segment(center+Vector3(x,0,-z),center+Vector3(x,0,z))
@@ -331,7 +337,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if paused or preview_camera:
 		return
-	var input := Vector3(float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)), 0, float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
+	var input := movement_input if movement_test else Vector3(float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)), 0, float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
 	var direction := input.normalized().rotated(Vector3.UP, yaw)
 	var speed := (6.0 if slow_mode else 8.0 + speed_level * 1.2) * (1.45 if Input.is_physical_key_pressed(KEY_SHIFT) else 1.0) * (0.82 if carried != null else 1.0)
 	player.velocity.x = direction.x * speed
@@ -730,7 +736,7 @@ func _prepare_preview() -> void:
 	get_tree().quit()
 
 func _load_progress() -> void:
-	if smoke or preview or not FileAccess.file_exists(SAVE_PATH):
+	if smoke or preview or movement_test or not FileAccess.file_exists(SAVE_PATH):
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if file == null:
@@ -744,7 +750,7 @@ func _load_progress() -> void:
 	pet_count = clampi(int(data.get("pets", 0)), 0, 3 + base_level * 3)
 
 func _save_progress() -> void:
-	if smoke or preview:
+	if smoke or preview or movement_test:
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file != null:
@@ -808,3 +814,39 @@ func _check(condition: bool, error: String) -> void:
 	if not condition:
 		smoke_failures += 1
 		push_error("EGG_DASH_SMOKE_FAIL: " + error)
+
+func _walk_regression(label: String, start: Vector3, direction: Vector3, seconds: float, must_reach: bool = true) -> void:
+	movement_input = Vector3.ZERO
+	player.position = start + Vector3(0,.25,0)
+	player.velocity = Vector3.ZERO
+	for i in range(20):
+		await get_tree().physics_frame
+	var origin := player.position
+	movement_input = direction
+	for i in range(ceili(seconds*60)):
+		await get_tree().physics_frame
+	movement_input = Vector3.ZERO
+	var progress := (player.position-origin).dot(direction)
+	var expected := seconds*6.0
+	var passed := progress>expected-1.0 if must_reach else progress<expected*.7
+	if not passed:
+		for i in range(player.get_slide_collision_count()):
+			var hit := player.get_slide_collision(i)
+			var collider := hit.get_collider() as Node
+			print("MOVEMENT_BLOCKER ",collider.get_parent().name if collider!=null else "unknown"," normal=",hit.get_normal())
+	_check(passed,"Movement route "+label+" progress="+str(progress)+" expected="+str(expected))
+	print("MOVEMENT_ROUTE ",label," progress=",snappedf(progress,.01)," passed=",passed)
+
+func _movement_test() -> void:
+	slow_mode = true
+	await _walk_regression("safe_zone_to_forest",Vector3(0,0,3),Vector3.FORWARD,2.0)
+	await _walk_regression("forest_to_safe_zone",Vector3(0,0,-9),Vector3.BACK,2.0)
+	await _walk_regression("pen_entry",Vector3(3,0,10),Vector3.BACK,2.0)
+	await _walk_regression("pen_exit",Vector3(3,0,22),Vector3.FORWARD,2.0)
+	for edge in [-40.5,-42.5,-81.5,-83.5,-122.5,-124.5,-163.5,-165.5]:
+		await _walk_regression("biome_"+str(edge),Vector3(0,0,edge+3),Vector3.FORWARD,1.0)
+	await _walk_regression("fence_stays_solid",Vector3(18,0,35),Vector3.RIGHT,2.0,false)
+	await _walk_regression("outer_wall_stays_solid",Vector3(91,0,70),Vector3.RIGHT,2.0,false)
+	if smoke_failures==0:
+		print("EGG_DASH_MOVEMENT_PASS: 14 physical walking routes")
+	get_tree().quit(0 if smoke_failures==0 else 1)
