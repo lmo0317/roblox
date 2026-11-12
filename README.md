@@ -4,7 +4,13 @@
 
 ## 바로 실행
 
-[Releases](https://github.com/lmo0317/roblox/releases)에서 운영체제에 맞는 ZIP을 다운로드하고 압축을 풉니다.
+저장소에 올린 실행 파일을 다운로드하고 압축을 풉니다.
+
+- [Windows 다운로드](https://github.com/lmo0317/roblox/raw/refs/heads/main/Builds/EggDash-Windows.zip)
+- [Linux 다운로드](https://github.com/lmo0317/roblox/raw/refs/heads/main/Builds/EggDash-Linux.zip)
+- [SHA256 체크섬](Builds/SHA256SUMS.txt)
+
+GitHub 릴리스 첨부 업로드가 현재 인증 구성에서 거절되어 `Builds/`에 직접 보관합니다.
 
 - **Windows x86_64:** `EggDash-Windows.exe` 실행. Godot 설치 불필요. 서명되지 않은 프로토타입입니다.
 - **Linux x86_64:** 실행 권한을 부여한 뒤 `./EggDash-Linux.x86_64` 실행. 그래픽 드라이버와 데스크톱 환경이 필요합니다.

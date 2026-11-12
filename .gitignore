@@ -17,3 +17,7 @@
 .godot/
 dist/
 *.tmp
+
+# Explicitly published cloud build downloads
+!/Builds/
+!/Builds/**

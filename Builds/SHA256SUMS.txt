@@ -1,0 +1,2 @@
+dfea34a14967bc9264c76e89dd20c6b0fcbc3e53624a9391f3d656820f1712cb  EggDash-Linux.zip
+f9bacff04d2dadc2e7bc629e80b93fd9d772f8f5145f84669c201b00b86ebab9  EggDash-Windows.zip
