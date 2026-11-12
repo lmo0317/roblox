@@ -12,3 +12,8 @@
 *.user
 *.log
 .DS_Store
+
+# Godot editor cache and local exports
+.godot/
+dist/
+*.tmp
