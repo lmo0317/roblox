@@ -65,6 +65,10 @@ func _ready() -> void:
 	if mobile_ui: get_viewport().scaling_3d_scale = .75
 	ui_font = load("res://assets/fonts/Interface-Bold.ttf")
 	world_rng.seed = 42
+	if mobile_ui:
+		get_tree().root.min_size=Vector2i(320,320)
+		_update_mobile_viewport()
+		get_tree().root.size_changed.connect(_update_mobile_viewport)
 	_load_progress()
 	_build_world()
 	_build_player()
@@ -943,3 +947,9 @@ func _mobile_regression() -> void:
 	yaw=0
 	if smoke_failures==0:
 		print("EGG_DASH_TOUCH_PASS: joystick, simultaneous camera, jump, run, release")
+
+func _update_mobile_viewport() -> void:
+	var pixels := DisplayServer.window_get_size()
+	var base := Vector2i(1080,1920) if pixels.y>pixels.x else Vector2i(1920,1080)
+	if get_tree().root.content_scale_size!=base:
+		get_tree().root.content_scale_size=base

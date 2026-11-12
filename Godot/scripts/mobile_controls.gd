@@ -55,10 +55,13 @@ func _layout() -> void:
 	joystick_center = Vector2(220,size.y-240)
 	if joystick_finger<0:
 		joystick_tip = joystick_center
+	var portrait := size.y>size.x
 	var positions := {
 		"jump":Vector2(size.x-160,size.y-180),
 		"use":Vector2(size.x-170,size.y-370),
 		"run":Vector2(size.x-345,size.y-180)}
+	if portrait:
+		positions["use"] = Vector2(size.x-160,size.y-370)
 	for key in actions:
 		actions[key].position = positions[key]-Vector2(72,72)
 	queue_redraw()
