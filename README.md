@@ -2,6 +2,12 @@
 
 로블록스식 블록 캐릭터와 단순한 지형으로 만든 **Godot 4.6.3 싱글플레이 프로토타입**입니다. 클라우드에서 Windows/Linux 실행 파일을 빌드합니다. Unity 원본은 비교용으로 보존하며, 현재 개발 버전은 `Godot/`입니다.
 
+## 실제 게임 화면
+
+![Godot 실제 실행 화면](Docs/godot-gameplay-preview.png)
+
+현재 다운로드는 위 화면의 캐릭터·펫·여우·기지·환경·HUD가 반영된 그래픽 개선 버전입니다. 화면은 실제 런타임에서 알 운반 장면을 고정해 촬영했습니다.
+
 ## 바로 실행
 
 저장소에 올린 실행 파일을 다운로드하고 압축을 풉니다.
@@ -48,7 +54,7 @@ godot --headless --path Godot --export-release Linux "$PWD/dist/EggDash-Linux.x8
 
 ## 검증
 
-Godot 실제 런타임에서 다음 시나리오를 헤드리스 통합 테스트합니다: 알 획득, 부화, 펫 수익, 속도/기지 구매, 희귀 알 레벨 제한과 부화 보너스, 수호 동물에게 잡혔을 때 복귀. 성공 시 `EGG_DASH_SMOKE_PASS`가 출력됩니다. Linux 내보내기 실행 파일에서도 동일 시나리오를 실행합니다. 데스크톱 화면에서의 시각적 검수와 Windows 직접 실행은 아직 수행하지 않았습니다.
+Godot 실제 런타임에서 다음 시나리오를 헤드리스 통합 테스트합니다: 알 획득, 부화, 펫 수익, 속도/기지 구매, 희귀 알 레벨 제한과 부화 보너스, 수호 동물에게 잡혔을 때 복귀. 성공 시 `EGG_DASH_SMOKE_PASS`가 출력됩니다. Linux 내보내기 실행 파일에서도 동일 시나리오를 실행합니다. Linux 가상 디스플레이에서 내보낸 실행 파일의 실제 렌더링도 확인했습니다. Windows 직접 실행은 아직 수행하지 않았습니다.
 
 ## 범위
 
@@ -57,3 +63,7 @@ Godot 실제 런타임에서 다음 시나리오를 헤드리스 통합 테스�
 - `Godot/`: 현재 Godot 프로젝트와 통합 테스트
 - `Assets/`, `Packages/`, `ProjectSettings/`: 이전 Unity 프로토타입 ([설명](Docs/Unity.md))
 - `Docs/concept.png`: 생성형 콘셉트 이미지. 실제 플레이 화면과 다릅니다.
+
+## 모델 제작
+
+`Godot/assets/*.glb`는 이 프로젝트를 위해 Blender로 제작한 모델입니다. `blender -b --python Tools/generate_assets.py -- Godot/assets`로 다시 생성할 수 있습니다. 실행에는 Blender가 필요하지 않습니다.

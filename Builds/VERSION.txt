@@ -1,0 +1,2 @@
+Egg Dash 0.2.0 - Visual Update
+Godot 4.6.3
