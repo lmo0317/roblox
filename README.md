@@ -18,6 +18,10 @@ godot --headless --fixed-fps 60 --path Godot -- --movement-test
 
 현재 다운로드는 **v0.3.1 경계 이동 수정 버전**입니다. 실제 Steal An Egg 화면을 참고해 울타리형 펫 구역, 넓은 격자 바닥과 HUD 배치를 재구성했습니다. 위 화면은 실제 런타임에서 펫 6마리가 있는 장면을 구성해 촬영했습니다. [화면·맵 사양과 참고 자료](Docs/Reference-layout.md)를 확인하세요.
 
+## Android APK
+
+**[Android 테스트 APK 다운로드](https://github.com/lmo0317/roblox/raw/refs/heads/main/Builds/EggDash-Android.apk)** — Android 7.0 이상 ARM64 기기용 v0.3.2입니다. 터치 이동·카메라·점프·달리기·상호작용을 지원합니다. [설치 방법과 검증 범위](Docs/Android.md)를 확인하세요. 실제 Android 기기 실행은 미검증입니다.
+
 ## 바로 실행
 
 저장소에 올린 실행 파일을 다운로드하고 압축을 풉니다.

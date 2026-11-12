@@ -21,3 +21,7 @@ dist/
 # Explicitly published cloud build downloads
 !/Builds/
 !/Builds/**
+
+# Local signing keys
+*.keystore
+*.jks

@@ -24,6 +24,8 @@ var clock: float = 0.0
 var save_clock: float = 0.0
 var gait: float = 0.0
 var paused: bool = false
+var mobile_ui: bool = false
+var mobile_controls: MobileControls
 var movement_test: bool = false
 var movement_input := Vector3.ZERO
 var smoke: bool = false
@@ -58,7 +60,9 @@ func _ready() -> void:
 	smoke = "--smoke-test" in OS.get_cmdline_user_args()
 	movement_test = "--movement-test" in OS.get_cmdline_user_args()
 	preview = "--preview" in OS.get_cmdline_user_args()
-	get_viewport().msaa_3d = Viewport.MSAA_4X
+	mobile_ui = OS.has_feature("android") or "--mobile-ui" in OS.get_cmdline_user_args()
+	get_viewport().msaa_3d = Viewport.MSAA_2X if mobile_ui else Viewport.MSAA_4X
+	if mobile_ui: get_viewport().scaling_3d_scale = .75
 	ui_font = load("res://assets/fonts/Interface-Bold.ttf")
 	world_rng.seed = 42
 	_load_progress()
@@ -82,6 +86,7 @@ func box(label: String, pos: Vector3, size: Vector3, color: String, parent: Node
 	var template := instance.find_child("Unit", true, false) as MeshInstance3D
 	mesh.mesh = template.mesh
 	mesh.scale = size
+	if mobile_ui and size.length()<15: mesh.visibility_range_end=75
 	instance.free()
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(color)
@@ -321,6 +326,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_open_menu("Settings")
 			else:
 				menu_panel.hide()
+				_resume_touch()
 		if event.physical_keycode == KEY_F11:
 			_fullscreen()
 		if event.physical_keycode == KEY_E and not paused:
@@ -338,12 +344,14 @@ func _physics_process(delta: float) -> void:
 	if paused or preview_camera:
 		return
 	var input := movement_input if movement_test else Vector3(float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)), 0, float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
-	var direction := input.normalized().rotated(Vector3.UP, yaw)
-	var speed := (6.0 if slow_mode else 8.0 + speed_level * 1.2) * (1.45 if Input.is_physical_key_pressed(KEY_SHIFT) else 1.0) * (0.82 if carried != null else 1.0)
+	if mobile_controls!=null and not movement_test:
+		input += Vector3(mobile_controls.movement.x,0,mobile_controls.movement.y)
+	var direction := input.limit_length(1.0).rotated(Vector3.UP, yaw)
+	var speed := (6.0 if slow_mode else 8.0 + speed_level * 1.2) * (1.45 if Input.is_physical_key_pressed(KEY_SHIFT) or (mobile_controls!=null and mobile_controls.sprinting) else 1.0) * (0.82 if carried != null else 1.0)
 	player.velocity.x = direction.x * speed
 	player.velocity.z = direction.z * speed
 	if player.is_on_floor():
-		player.velocity.y = 8 if Input.is_physical_key_pressed(KEY_SPACE) else -0.1
+		player.velocity.y = 8 if Input.is_physical_key_pressed(KEY_SPACE) or (mobile_controls!=null and mobile_controls.jump_held) else -0.1
 	else:
 		player.velocity.y -= 22 * delta
 	player.move_and_slide()
@@ -651,6 +659,26 @@ func _build_ui() -> void:
 	menu_panel.add_child(menu_body)
 	menu_panel.hide()
 	pause_panel = menu_panel
+	if mobile_ui:
+		mobile_controls = MobileControls.new()
+		hud_root.add_child(mobile_controls)
+		mobile_controls.interacted.connect(func():
+			if not paused: _interact())
+		mobile_controls.camera_dragged.connect(func(delta: Vector2):
+			if not paused:
+				yaw-=delta.x*.004
+				pitch=clampf(pitch+delta.y*.003,.15,1.0))
+		# Move resources away from the left thumb; keep menus in front of controls.
+		badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		badge.position=Vector2(80,90)
+		hud.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		hud.position=Vector2(80,155)
+		for child in hud_root.get_children():
+			if child is TextureRect:
+				child.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+				child.position=Vector2(12,90 if child.texture.resource_path.ends_with("shoe.svg") else 155)
+				child.size=Vector2(64,64)
+		menu_panel.move_to_front()
 	_refresh_hud()
 
 func _toggle_slow() -> void:
@@ -693,9 +721,13 @@ func _open_menu(kind: String) -> void:
 	var close := Button.new()
 	close.text = "Close"
 	close.custom_minimum_size.y = 50
-	close.pressed.connect(func(): menu_panel.hide(); paused=false)
+	close.pressed.connect(func(): menu_panel.hide(); paused=false; _resume_touch())
 	menu_body.add_child(close)
 	menu_panel.show()
+	if mobile_controls!=null:
+		mobile_controls.reset_controls()
+		mobile_controls.set_process_unhandled_input(false)
+		mobile_controls.hide()
 
 func _fullscreen() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
@@ -757,12 +789,21 @@ func _save_progress() -> void:
 		file.store_string(JSON.stringify({"coins": coins, "speed": speed_level, "base": base_level, "pets": pet_count}))
 
 func _notification(what: int) -> void:
+	if what==NOTIFICATION_APPLICATION_FOCUS_OUT or what==NOTIFICATION_APPLICATION_PAUSED:
+		_save_progress()
+		if mobile_controls!=null: mobile_controls.reset_controls()
+	if what==NOTIFICATION_WM_GO_BACK_REQUEST:
+		paused=not paused
+		if paused: _open_menu("Settings")
+		else: menu_panel.hide(); _resume_touch()
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_save_progress()
 		get_tree().quit()
 
 func _smoke_test() -> void:
 	# Integration test using real scene nodes and gameplay methods.
+	if mobile_controls!=null:
+		await _mobile_regression()
 	await get_tree().process_frame
 	for child in hud_root.get_children():
 		if child is Button and child.text=="Shop":
@@ -850,3 +891,55 @@ func _movement_test() -> void:
 	if smoke_failures==0:
 		print("EGG_DASH_MOVEMENT_PASS: 14 physical walking routes")
 	get_tree().quit(0 if smoke_failures==0 else 1)
+
+func _resume_touch() -> void:
+	if mobile_controls!=null:
+		mobile_controls.set_process_unhandled_input(true)
+		mobile_controls.show()
+
+func _send_touch(index: int, pos: Vector2, down: bool) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index=index
+	event.position=pos
+	event.pressed=down
+	get_viewport().push_input(event,true)
+
+func _send_drag(index: int,pos: Vector2,delta: Vector2) -> void:
+	var event := InputEventScreenDrag.new()
+	event.index=index
+	event.position=pos
+	event.relative=delta
+	get_viewport().push_input(event,true)
+
+func _mobile_regression() -> void:
+	await get_tree().process_frame
+	_resume_touch()
+	var center := mobile_controls.joystick_center
+
+	_send_touch(0,center,true)
+	_send_drag(0,center+Vector2(60,-70),Vector2(60,-70))
+	await get_tree().process_frame
+	_check(mobile_controls.movement.y<-.3 and mobile_controls.movement.x>.3,"Touch joystick direction")
+	var old_yaw := yaw
+	_send_touch(1,Vector2(1000,330),true)
+	_send_drag(1,Vector2(1040,350),Vector2(40,20))
+	await get_tree().process_frame
+	_check(yaw!=old_yaw and mobile_controls.movement.length()>.3,"Simultaneous move/camera touch")
+	_send_touch(1,Vector2(1040,350),false)
+	var jump_center: Vector2=mobile_controls.actions.jump.position+Vector2(72,72)
+	_send_touch(2,jump_center,true)
+	await get_tree().process_frame
+	_check(mobile_controls.jump_held,"Touch jump press")
+	_send_touch(2,jump_center,false)
+	_send_touch(0,center,false)
+	await get_tree().process_frame
+	_check(not mobile_controls.jump_held and mobile_controls.movement==Vector2.ZERO,"Touch release resets controls")
+	var run_center: Vector2=mobile_controls.actions.run.position+Vector2(72,72)
+	_send_touch(3,run_center,true)
+	_send_touch(3,run_center,false)
+	await get_tree().process_frame
+	_check(mobile_controls.sprinting,"Touch run toggle")
+	mobile_controls.reset_controls()
+	yaw=0
+	if smoke_failures==0:
+		print("EGG_DASH_TOUCH_PASS: joystick, simultaneous camera, jump, run, release")
