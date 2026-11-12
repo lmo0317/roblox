@@ -1,2 +1,2 @@
-Egg Dash 0.2.0 - Visual Update
+Egg Dash 0.3.0 - Reference Layout Rebuild
 Godot 4.6.3

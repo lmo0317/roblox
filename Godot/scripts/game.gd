@@ -37,6 +37,17 @@ var badge: Label
 var quest: Label
 var pet_label: Label
 var preview_camera: bool = false
+var slow_mode: bool = false
+var camera_distance: float = 9.0
+var hud_root: Control
+var menu_panel: PanelContainer
+var menu_body: VBoxContainer
+var slow_button: Button
+var leaderboard: Label
+var event_label: Label
+var selected_slot: int = 0
+var ui_font: Font
+var world_rng := RandomNumberGenerator.new()
 var home := Vector3(0, 0, 10)
 var hatch_pad := Vector3(0, 0, 13)
 var fox_home := Vector3(-10, 0, -9)
@@ -45,6 +56,8 @@ func _ready() -> void:
 	smoke = "--smoke-test" in OS.get_cmdline_user_args()
 	preview = "--preview" in OS.get_cmdline_user_args()
 	get_viewport().msaa_3d = Viewport.MSAA_4X
+	ui_font = load("res://assets/fonts/Interface-Bold.ttf")
+	world_rng.seed = 42
 	_load_progress()
 	_build_world()
 	_build_player()
@@ -99,170 +112,165 @@ func asset(name: String, pos: Vector3, parent: Node3D = null) -> Node3D:
 	instance.position = pos
 	return instance
 
+func stud_surface(mesh: MeshInstance3D, color: String, tiled: bool = true) -> void:
+	var material := ShaderMaterial.new()
+	material.shader = load("res://assets/studs.gdshader")
+	material.set_shader_parameter("base_color",Color(color).srgb_to_linear().lerp(Color(color),.35))
+	material.set_shader_parameter("checker",tiled)
+	mesh.material_override = material
+
 func _build_world() -> void:
 	var environment := WorldEnvironment.new()
 	var settings := Environment.new()
 	var sky := Sky.new()
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color("4e9ddd")
-	sky_mat.sky_horizon_color = Color("c2e7fa")
-	sky_mat.ground_horizon_color = Color("c2e7fa")
-	sky_mat.ground_bottom_color = Color("9bc96a")
-	sky_mat.sky_curve = 0.25
+	sky_mat.sky_top_color = Color("1094f0")
+	sky_mat.sky_horizon_color = Color("b2e5ff")
+	sky_mat.ground_horizon_color = Color("b2e5ff")
+	sky_mat.ground_bottom_color = Color("7ac444")
 	sky.sky_material = sky_mat
 	settings.sky = sky
 	settings.background_mode = Environment.BG_SKY
 	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	settings.ambient_light_color = Color("d8e8ff")
-	settings.ambient_light_energy = 0.36
+	settings.ambient_light_color = Color("ffffff")
+	settings.ambient_light_energy = 0.55
 	settings.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	settings.tonemap_exposure = 0.85
 	environment.environment = settings
 	add_child(environment)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-48, -32, 0)
-	sun.light_color = Color("fff1d5")
-	sun.light_energy = 0.85
+	sun.rotation_degrees = Vector3(-62,-25,0)
+	sun.light_energy = 0.75
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 90
-	sun.shadow_bias = 0.03
+	sun.directional_shadow_max_distance = 120
 	add_child(sun)
-	box("Island earth", Vector3(0, -1.2, -2), Vector3(56, 2, 58), "a78456")
-	box("Grass", Vector3(0, -0.15, -2), Vector3(55, 0.35, 57), "7bc44d")
-	box("Main path", Vector3(0, 0.025, -2), Vector3(5.5, 0.14, 39), "aebfc5")
-	box("Crossroad", Vector3(0, 0.035, -4), Vector3(40, 0.14, 4.5), "aebfc5")
-	for x in [-2.9, 2.9]:
-		box("Path curb", Vector3(x, 0.09, -2), Vector3(0.22, 0.24, 39), "e7e8d7")
-	for z in [-6.4, -1.6]:
-		box("Crossroad curb", Vector3(0, 0.10, z), Vector3(40, 0.24, 0.22), "e7e8d7")
-	# Paving seams and center lane markers add scale to the world.
-	for z in range(-19, 16, 2):
-		box("Paving joint", Vector3(0, 0.104, z), Vector3(5.4, 0.008, 0.035), "93a8af", null, false)
-		if z < 9:
-			box("Lane marker", Vector3(0, 0.112, z), Vector3(0.14, 0.012, 0.65), "f4f6dd", null, false)
-	_build_base(Vector3(0, 0, 17), "3182db", "YOUR BASE")
-	_build_base(Vector3(-18, 0, 4), "e56851", "MAPLE LODGE")
-	_build_base(Vector3(18, 0, -15), "956bd2", "VIOLET LODGE")
-	box("Hatch glow", hatch_pad + Vector3(0, 0.12, 0), Vector3(3.5, 0.20, 3.5), "1d8dae")
-	box("Hatch pad", hatch_pad + Vector3(0, 0.25, 0), Vector3(3.1, 0.12, 3.1), "7aebee")
-	for x in [-1, 1]:
-		box("Hatch chevron", hatch_pad + Vector3(x * 0.65, 0.32, 0), Vector3(0.35, 0.018, 1.3), "e8ffff", null, false)
-	sign_text("HATCH", hatch_pad + Vector3(0, 0.75, 0), 0.005)
+	var floor_mesh := box("Baseplate 192 x 320",Vector3(0,-.5,-65),Vector3(192,1,320),"88ea24")
+	stud_surface(floor_mesh,"81e41a")
+	for x in [-96,96]:
+		var wall := box("Perimeter wall",Vector3(x,9,-65),Vector3(1,18,320),"d5a46c")
+		stud_surface(wall,"d4a670")
+		box("Green rim",Vector3(x,18.1,-65),Vector3(1.4,.45,320),"49ef25",null,false)
+	for z in [-225,95]:
+		var wall := box("End wall",Vector3(0,9,z),Vector3(193,18,1),"d5a46c")
+		stud_surface(wall,"d4a670")
+		box("Wall rim",Vector3(0,18.1,z),Vector3(193,.4,1.4),"49ef25",null,false)
+	# Open animal pens replace the invented buildings from earlier versions.
+	for x in [-62,0,62]:
+		_build_pen(Vector3(x,0,35),Vector2(42,38),true)
+		if x != 0:
+			_build_pen(Vector3(x,0,-8),Vector2(42,32),false)
+	_build_pen(Vector3(0,0,76),Vector2(42,30),false)
+	box("Safe zone boundary",Vector3(0,.025,5),Vector3(190,.045,.24),"f97c6a",null,false)
+	_ground_text("SAFE ZONE",Vector3(0,.08,6.0),1.3,Color.WHITE)
+	_ground_text("YOUR BASE",Vector3(0,.08,17),.75,Color.WHITE)
+	# Original hatch pad retained in front of the player's pen.
+	box("Hatch pad",hatch_pad+Vector3(0,.12,0),Vector3(3.2,.22,3.2),"63e9ff")
 	_build_treadmill()
-	box("Upgrade pad base", Vector3(-9, 0.18, 13), Vector3(3.2, 0.3, 3.2), "d6982f")
-	box("Upgrade pad", Vector3(-9, 0.36, 13), Vector3(2.9, 0.12, 2.9), "ffe58a")
-	sign_text("EXPAND BASE", Vector3(-9, 2, 13), 0.0045)
-	# Grouped trees, rocks, flower beds and tufts, never a uniform empty plane.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 726
-	for x in [-24, 24]:
-		for z in [-24, -14, -2, 11, 21]:
-			var tree := asset("tree", Vector3(x + rng.randf_range(-1, 1), 0, z))
-			tree.scale = Vector3.ONE * rng.randf_range(0.9, 1.5)
-			tree.rotation.y = rng.randf_range(0, TAU)
-	for pos in [Vector3(-15,0,-13), Vector3(-6,0,-17), Vector3(7,0,-17), Vector3(15,0,-4), Vector3(-17,0,19)]:
-		asset("tree", pos)
-	for i in range(125):
-		var x := rng.randf_range(-25,25)
-		var z := rng.randf_range(-27,23)
-		if absf(x) < 4 or absf(z+4) < 3 or (z > 9 and absf(x) < 14):
-			continue
-		if i % 4 == 0:
-			var rock := box("Pebble", Vector3(x,0.18,z), Vector3(0.5,0.36,0.4), "b1bcb4",null,false)
-			rock.rotation.y = rng.randf_range(0,TAU)
-		else:
-			for j in range(3):
-				var blade := box("Grass tuft", Vector3(x+j*0.09,0.16,z),Vector3(0.055,0.32+j*0.07,0.06), "549840",null,false)
-				blade.rotation.z = (j-1)*0.3
-			if i % 5 == 0:
-				box("Flower center",Vector3(x,0.35,z),Vector3(0.11,0.11,0.11),"f4cf63",null,false)
-				for j in range(4):
-					box("Flower petal",Vector3(x+cos(j*PI/2)*0.12,0.34,z+sin(j*PI/2)*0.12),Vector3(0.16,0.07,0.16),"fff5db",null,false)
-	_build_fence(Vector3(-10,0,-9))
-	_build_fence(Vector3(10,0,-10))
-	box("Desert", Vector3(0, 0.08, -25), Vector3(20,0.15,8), "edd89f")
-	for x in [-5.5,5.5]:
-		box("Stone gate foot",Vector3(x,0.4,-21),Vector3(1.5,0.8,1.5),"bd9666")
-		box("Stone gate",Vector3(x,2.6,-21),Vector3(1,4,1),"e0c58b")
-	box("Gate lintel",Vector3(0,4.4,-21),Vector3(12.5,0.65,1.4),"d3ad6a")
-	box("Gate sign",Vector3(0,4.1,-20.2),Vector3(5,1,.15),"705846")
-	sign_text("RARE MEADOW / LV.3",Vector3(0,4.2,-20),0.004)
+	box("Expansion button",Vector3(-9,.14,13),Vector3(3,.25,3),"f9cd34")
+	sign_text("UPGRADE BASE\n[E] $250",Vector3(-9,2.4,13),.006)
+	# Segmented biomes along the central expedition route.
+	var biome_names := ["Forest", "Lake", "Desert", "Jungle", "Snow"]
+	var biome_colors := ["7bea20","64d5b5","f2d18a","49aa41","e1f0fa"]
+	for i in range(5):
+		var z: float = -21-i*41
+		var terrain := box(biome_names[i],Vector3(0,.02,z),Vector3(96,.08,39),biome_colors[i])
+		stud_surface(terrain,biome_colors[i])
+		_ground_text(biome_names[i],Vector3(0,.1,z+13),1.1,Color.WHITE)
+		if i > 0:
+			box("Biome separator",Vector3(0,.06,z+19.5),Vector3(96,.04,.25),"ffffff",null,false)
+		for j in range(7):
+			var pos := Vector3(world_rng.randf_range(-42,42),0,z+world_rng.randf_range(-14,10))
+			if i == 0 or i == 3:
+				var tree := asset("tree",pos)
+				tree.scale = Vector3.ONE*world_rng.randf_range(1.1,1.9)
+			elif i == 2:
+				box("Cactus",pos+Vector3(0,2,0),Vector3(.9,4,.9),"36995a")
+			else:
+				box("Rock",pos+Vector3(0,.5,0),Vector3(1.8,1,1.5),"b7c6ce")
 	_create_nest(Vector3(-10,0,-9),false)
 	_create_nest(Vector3(10,0,-10),false)
-	_create_nest(Vector3(0,0,-25),true)
-	fox = asset("fox", fox_home)
-	fox.name = "FoxGuardian"
-	# Distant scenery fills the horizon without blocking the playable area.
-	for i in range(9):
-		var hill := MeshInstance3D.new()
-		var hill_mesh := SphereMesh.new()
-		hill_mesh.radial_segments = 16
-		hill_mesh.rings = 8
-		hill.mesh = hill_mesh
-		var hill_mat := StandardMaterial3D.new()
-		hill_mat.albedo_color = Color("72a973" if i%2==0 else "88b47c")
-		hill.material_override = hill_mat
-		add_child(hill)
-		hill.position = Vector3(-55+i*14,-3,43+(i%3)*5)
-		hill.scale = Vector3(18,9+(i%3)*3,15)
-	for i in range(5):
-		var cloud_pos := Vector3(-35+i*17,13+(i%2)*4,37+(i%3)*5)
-		box("Cloud bank",cloud_pos,Vector3(8,1.1,3),"f8fcff",null,false)
-		box("Cloud bank cap",cloud_pos+Vector3(-1,.7,0),Vector3(4.6,1.2,2.8),"ffffff",null,false)
-	# Handcrafted chunky clouds.
-	for i in range(9):
-		var pos := Vector3(-45+i*12,17+(i%3)*2,-35-(i%2)*13)
-		box("Cloud",pos,Vector3(8,1.1,3),"eefaff",null,false)
-		box("Cloud cap",pos+Vector3(-1,0.7,0),Vector3(4.5,1,2.7),"f6fdff",null,false)
+	_create_nest(Vector3(0,0,-108),true)
+	fox = asset("chicken",fox_home)
+	fox.scale = Vector3.ONE*1.6
+	fox.name = "ForestGuardian"
+	# Distant pets fill the surrounding pens, using independently created models.
+	var species := ["chicken","crocodile","mammoth","dragon","fox","cat"]
+	for i in range(6):
+		var x: float = -62 if i<3 else 62
+		var z: float = 28+(i%3)*10
+		var pet := asset(species[i],Vector3(x+world_rng.randf_range(-7,7),0,z))
+		pet.scale = Vector3.ONE*[4.2,4.0,3.2,6.0,3.2,5.0][i]
+		pet.rotation.y = world_rng.randf_range(-.6,.6)
+		sign_text(species[i].capitalize(),pet.position+Vector3(0,10,0),.009)
+	_build_stall(Vector3(26,0,6))
+	for i in range(8):
+		var pos := Vector3(-90+i*25,24+(i%3)*3,-45)
+		box("Cloud",pos,Vector3(13,1.5,5),"ffffff",null,false)
+		box("Cloud top",pos+Vector3(-2,1,0),Vector3(7,1.5,4),"ffffff",null,false)
 
-func _build_fence(center: Vector3) -> void:
-	for x in [-3.3,-1.1,1.1,3.3]:
-		box("Fence post",center+Vector3(x,.65,-2.4),Vector3(.25,1.3,.25),"b5824f")
-		box("Post cap",center+Vector3(x,1.34,-2.4),Vector3(.34,.12,.34),"edc68e")
-	for y in [.5,1.0]:
-		box("Fence rail",center+Vector3(0,y,-2.4),Vector3(6.8,.17,.13),"cda16b")
-	box("Nest clearing",center+Vector3(0,.04,0),Vector3(6.5,.12,4.3),"9bc963")
+func _ground_text(text: String, pos: Vector3, size: float, color: Color) -> void:
+	var label := Label3D.new()
+	label.text = text
+	label.font = ui_font
+	label.font_size = 96
+	label.pixel_size = .018*size
+	label.outline_size = 10
+	label.modulate = color
+	label.rotation_degrees.x = -90
+	add_child(label)
+	label.position = pos
+
+func fence_segment(a: Vector3,b: Vector3) -> void:
+	var diff := b-a
+	var length := diff.length()
+	var steps := maxi(1,ceili(length/4.5))
+	for i in range(steps+1):
+		var pos := a.lerp(b,float(i)/steps)
+		box("Fence post",pos+Vector3(0,.85,0),Vector3(.36,1.7,.36),"5c4c43")
+		box("Post cap",pos+Vector3(0,1.72,0),Vector3(.46,.16,.46),"786452")
+	for i in range(steps):
+		var left := a.lerp(b,float(i)/steps)
+		var right := a.lerp(b,float(i+1)/steps)
+		for y in [.45,1.35]:
+			var rail := box("Wooden rail",(left+right)*.5+Vector3(0,y,0),Vector3(left.distance_to(right),.16,.20),"be7835")
+			rail.rotation.y = -atan2(diff.z,diff.x)
+		for tilt in [-1,1]:
+			var rail := box("Cross brace",(left+right)*.5+Vector3(0,.9,0),Vector3(sqrt(pow(left.distance_to(right),2)+.8),.12,.13),"b16a30",null,false)
+			rail.rotation.y = -atan2(diff.z,diff.x)
+			rail.rotation.z = tilt*atan2(.9,left.distance_to(right))
+
+func _build_pen(center: Vector3,size: Vector2,own: bool) -> void:
+	var x := size.x/2
+	var z := size.y/2
+	var floor_mesh := box("Pen grass",center+Vector3(0,.025,0),Vector3(size.x,.07,size.y),"8cec2b")
+	stud_surface(floor_mesh,"8cec2b")
+	fence_segment(center+Vector3(-x,0,-z),center+Vector3(-x,0,z))
+	fence_segment(center+Vector3(x,0,-z),center+Vector3(x,0,z))
+	fence_segment(center+Vector3(-x,0,z),center+Vector3(x,0,z))
+	fence_segment(center+Vector3(-x,0,-z),center+Vector3(-4,0,-z))
+	fence_segment(center+Vector3(4,0,-z),center+Vector3(x,0,-z))
+	if own:
+		sign_text("YOUR BASE" if absf(center.x)<1 else "PET GARDEN",center+Vector3(0,3,z),.007)
 
 func _build_treadmill() -> void:
-	box("Treadmill plinth",Vector3(9,.2,13),Vector3(2.5,.35,4.6),"e3e9e8")
-	box("Treadmill frame",Vector3(9,.48,13),Vector3(2,.4,4),"52677c")
-	box("Treadmill belt",Vector3(9,.71,13),Vector3(1.55,.08,3.6),"263e50")
-	for z in range(7):
-		box("Belt stripe",Vector3(9,.76,11.5+z*.5),Vector3(1.4,.02,.04),"607b8a",null,false)
-	for x in [8.15,9.85]:
-		box("Support",Vector3(x,1.4,14.3),Vector3(.13,1.5,.16),"7592a5")
-	box("Console",Vector3(9,2.15,14.3),Vector3(2,.75,.25),"32577b")
-	box("Screen",Vector3(9,2.2,14.14),Vector3(1.25,.38,.04),"68e3cf",null,false)
-	sign_text("SPEED LAB",Vector3(9,3.1,13.9),0.004)
+	box("Treadmill platform",Vector3(9,.15,13),Vector3(3,.3,4.7),"f8d62c")
+	box("Belt frame",Vector3(9,.45,13),Vector3(2.2,.35,4.1),"34404d")
+	box("Belt",Vector3(9,.65,13),Vector3(1.8,.08,3.8),"172b37")
+	for z in range(8):
+		box("Belt line",Vector3(9,.70,11.4+z*.45),Vector3(1.7,.02,.04),"657a87",null,false)
+	for x in [8.05,9.95]:
+		box("Support",Vector3(x,1.5,14.4),Vector3(.15,1.6,.15),"4b7297")
+	box("Console",Vector3(9,2.3,14.4),Vector3(2.2,.8,.3),"305779")
+	box("Display",Vector3(9,2.3,14.2),Vector3(1.5,.4,.03),"58e5f4",null,false)
+	sign_text("Upgrade Treadmill\n[E]",Vector3(11.5,3,13),.005)
 
-func _build_base(pos: Vector3, color: String, text: String) -> void:
-	box("Foundation",pos+Vector3(0,.15,0),Vector3(13.8,.35,6.8),"9bafba")
-	box("Floor",pos+Vector3(0,.38,0),Vector3(13.3,.18,6.3),"e7edef")
-	box("Back wall",pos+Vector3(0,2.4,3),Vector3(13,4,.4),"dce8ed")
-	box("Wall lower band",pos+Vector3(0,1.0,2.72),Vector3(13,.65,.13),color)
-	box("Roof lower",pos+Vector3(0,4.4,0),Vector3(14,.35,7),"d8e6ef")
-	box("Roof cap",pos+Vector3(0,4.68,0),Vector3(14.2,.32,7.2),color)
-	box("Fascia",pos+Vector3(0,4.25,-3.3),Vector3(13.7,.55,.22),color)
-	for x in [-6.2,6.2]:
-		box("Column foot",pos+Vector3(x,.55,-2.8),Vector3(.85,.35,.85),color)
-		box("Column",pos+Vector3(x,2.5,-2.8),Vector3(.48,3.8,.48),"edf5f5")
-		box("Column top",pos+Vector3(x,4,-2.8),Vector3(.72,.3,.72),color)
-	box("Sign border",pos+Vector3(0,5,-3.0),Vector3(5.4,1.12,.3),"203c61")
-	box("Sign face",pos+Vector3(0,5,-3.19),Vector3(5.15,.87,.1),"f3f7e9")
-	sign_text(text,pos+Vector3(0,5.02,-3.55),0.005)
-	for x in [-4,-2.4,-.8,.8,2.4,4]:
-		box("Pet bay back",pos+Vector3(x,1.6,2.45),Vector3(1.43,2.2,.17),color)
-		box("Pet bay floor",pos+Vector3(x,.6,1.5),Vector3(1.5,.25,1.9),"f3f7fc")
-		box("Bay canopy",pos+Vector3(x,2.85,1.8),Vector3(1.5,.18,1.6),"f4f8fc")
-		for side in [-.75,.75]:
-			box("Bay side",pos+Vector3(x+side,1.7,2.1),Vector3(.1,2.3,1.0),"f3f7fc")
-		box("Bay pad",pos+Vector3(x,.76,.5),Vector3(1.15,.12,.65),"91dc63")
-	# Ceiling strips and planted pots frame the entrance.
-	for x in [-4,0,4]:
-		box("Ceiling light",pos+Vector3(x,4.17,-.5),Vector3(1.6,.05,.35),"fff6c7",null,false)
-	for x in [-7.1,7.1]:
-		box("Planter",pos+Vector3(x,.6,-2.4),Vector3(1,1,1),"dfbc84")
-		box("Shrub",pos+Vector3(x,1.35,-2.4),Vector3(1.25,.9,1.1),"61ac50",null,false)
+func _build_stall(pos: Vector3) -> void:
+	for x in [-2,2]:
+		box("Stall post",pos+Vector3(x,1.7,0),Vector3(.18,3.4,.18),"d2ab64")
+	for i in range(8):
+		var stripe := box("Canopy stripe",pos+Vector3(-2.1+i*.6,3.5,0),Vector3(.6,.12,3),"ef4444" if i%2==0 else "fff9dd")
+		stripe.rotation.x = .15
+	box("Counter",pos+Vector3(0,1,0),Vector3(4.5,1.1,1.2),"c29455")
+	sign_text("SELL",pos+Vector3(0,4.3,0),.012)
 
 func _create_nest(pos: Vector3, rare: bool) -> void:
 	asset("nest",pos)
@@ -294,7 +302,7 @@ func _build_player() -> void:
 	leg_left = model.find_child("LeftLeg", true, false)
 	leg_right = model.find_child("RightLeg", true, false)
 	camera = Camera3D.new()
-	camera.fov = 65
+	camera.fov = 70
 	add_child(camera)
 	camera.position = home + Vector3(0, 5, 9)
 	camera.look_at(home + Vector3(0, 1.7, 0))
@@ -303,9 +311,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_ESCAPE:
 			paused = not paused
-			pause_panel.visible = paused
+			if paused:
+				_open_menu("Settings")
+			else:
+				menu_panel.hide()
+		if event.physical_keycode == KEY_F11:
+			_fullscreen()
 		if event.physical_keycode == KEY_E and not paused:
 			_interact()
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			camera_distance = maxf(5, camera_distance-1.5)
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			camera_distance = minf(45,camera_distance+1.5)
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and not paused:
 		yaw -= event.relative.x * 0.006
 		pitch = clampf(pitch + event.relative.y * 0.004, 0.15, 1.0)
@@ -315,7 +333,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var input := Vector3(float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)), 0, float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
 	var direction := input.normalized().rotated(Vector3.UP, yaw)
-	var speed := (6.0 + speed_level * 1.2) * (1.45 if Input.is_physical_key_pressed(KEY_SHIFT) else 1.0) * (0.82 if carried != null else 1.0)
+	var speed := (6.0 if slow_mode else 8.0 + speed_level * 1.2) * (1.45 if Input.is_physical_key_pressed(KEY_SHIFT) else 1.0) * (0.82 if carried != null else 1.0)
 	player.velocity.x = direction.x * speed
 	player.velocity.z = direction.z * speed
 	if player.is_on_floor():
@@ -331,11 +349,11 @@ func _physics_process(delta: float) -> void:
 	leg_right.rotation.x = -swing
 	arm_left.rotation.x = -1.0 if carried != null else -swing
 	arm_right.rotation.x = -1.0 if carried != null else swing
-	if absf(player.position.x) > 26 or player.position.z < -29 or player.position.z > 25 or player.position.y < -5:
+	if absf(player.position.x) > 95 or player.position.z < -224 or player.position.z > 88 or player.position.y < -5:
 		_reset_player()
 	_update_game(delta)
 	var focus := player.position + Vector3(0, 1.8, 0)
-	var offset := Vector3(0, sin(pitch) * 10, cos(pitch) * 10).rotated(Vector3.UP, yaw)
+	var offset := Vector3(0, sin(pitch) * camera_distance, cos(pitch) * camera_distance).rotated(Vector3.UP, yaw)
 	var query := PhysicsRayQueryParameters3D.create(focus, focus + offset)
 	query.exclude = [player.get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
@@ -344,6 +362,13 @@ func _physics_process(delta: float) -> void:
 	camera.look_at(focus)
 
 func _update_game(delta: float) -> void:
+	var previous_cycle := floori(elapsed/240.0)
+	elapsed += delta
+	if floori(elapsed/240.0)>previous_cycle:
+		for nest in nests:
+			if nest.egg==null:
+				nest.timer=0
+		_notify("Eggs refreshed!")
 	message_timer -= delta
 	for nest in nests:
 		if nest.egg == null:
@@ -446,156 +471,252 @@ func _reset_player() -> void:
 func _add_pet(index: int) -> void:
 	var pet := Node3D.new()
 	add_child(pet)
-	pet.position = Vector3(-4 + (index % 6) * 1.6, 0.72, 18.4 - (index / 6) * 1.7)
-	asset("cat" if index % 2 == 0 else "dragon", Vector3.ZERO, pet)
-	sign_text("+$12/s", pet.position + Vector3(0,1.7,-0.2),0.003)
+	pet.position = Vector3(-13+(index%4)*8.5,.05,26+floori(index/4.0)*10)
+	var species := ["chicken","cat","crocodile","dragon","fox","mammoth"]
+	var creature := asset(species[index%6],Vector3.ZERO,pet)
+	creature.scale = Vector3.ONE*(2.2 if index%6!=5 else 2.0)
+	creature.rotation.y = PI
+	var ring := MeshInstance3D.new()
+	var shape := CylinderMesh.new()
+	shape.top_radius = 1.3
+	shape.bottom_radius = 1.45
+	shape.height = .18
+	ring.mesh = shape
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("946940")
+	ring.material_override = material
+	pet.add_child(ring)
+	ring.position.y = .1
+	sign_text("+$12/s",pet.position+Vector3(0,4.8,0),.008)
 	pets.append(pet)
 
 func _notify(text: String) -> void:
 	message = text
 	message_timer = 5
 
-func ui_panel(pos: Vector2, size: Vector2, color: Color, parent: Node) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.position = pos
-	panel.custom_minimum_size = size
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.corner_radius_top_left = 16
-	style.corner_radius_top_right = 16
-	style.corner_radius_bottom_left = 16
-	style.corner_radius_bottom_right = 16
-	style.border_width_bottom = 3
-	style.border_color = color.darkened(0.35)
-	style.shadow_color = Color(0.03,0.1,0.18,0.20)
-	style.shadow_size = 7
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	panel.add_theme_stylebox_override("panel",style)
-	parent.add_child(panel)
-	return panel
-
-func ui_label(text: String, size: int, color: Color = Color.WHITE) -> Label:
+func ink_label(text: String, font_size: int, color: Color = Color.WHITE) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size",size)
+	label.add_theme_font_override("font",ui_font)
+	label.add_theme_font_size_override("font_size",font_size)
 	label.add_theme_color_override("font_color",color)
+	label.add_theme_color_override("font_outline_color",Color("101010"))
+	label.add_theme_constant_override("outline_size",maxi(4,font_size/6))
+	label.add_theme_constant_override("shadow_offset_y",2)
 	return label
+
+func hud_button(text: String,pos: Vector2,size: Vector2,color: Color,action: Callable,anchor: int = Control.PRESET_TOP_LEFT) -> Button:
+	var button := Button.new()
+	hud_root.add_child(button)
+	button.set_anchors_and_offsets_preset(anchor)
+	button.position += pos
+	button.size = size
+	button.text = text
+	button.add_theme_font_override("font",ui_font)
+	button.add_theme_font_size_override("font_size",30)
+	button.add_theme_color_override("font_color",Color.WHITE)
+	button.add_theme_color_override("font_outline_color",Color.BLACK)
+	button.add_theme_constant_override("outline_size",9)
+	for kind in ["normal","hover","pressed"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = color.lightened(.15) if kind=="hover" else color.darkened(.12) if kind=="pressed" else color
+		style.set_border_width_all(4)
+		style.border_color = Color("201a15")
+		style.set_corner_radius_all(5)
+		style.shadow_color = Color(0,0,0,.25)
+		style.shadow_size = 2
+		button.add_theme_stylebox_override(kind,style)
+	if text in ["Shop","Index","EGG","PETS"]:
+		button.icon = load("res://assets/icons/"+{"Shop":"cart","Index":"book","EGG":"egg","PETS":"paw"}[text]+".svg")
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width",48)
+		button.add_theme_constant_override("h_separation",8)
+		if text in ["EGG","PETS"]:
+			button.text = ""
+	button.pressed.connect(action)
+	return button
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var root := Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(root)
-	var logo := ui_panel(Vector2(24,22),Vector2(254,88),Color("173653"),root)
-	var logo_rows := VBoxContainer.new()
-	logo_rows.add_theme_constant_override("separation",-4)
-	logo.add_child(logo_rows)
-	logo_rows.add_child(ui_label("EGG DASH",32,Color("fff4ce")))
-	logo_rows.add_child(ui_label("PET RESCUE • MEADOW",11,Color("95c3d5")))
-	var cash := ui_panel(Vector2(996,22),Vector2(260,62),Color("173653"),root)
-	hud = ui_label("",28,Color("ffe08b"))
-	cash.add_child(hud)
-	var income := ui_panel(Vector2(1056,94),Vector2(200,42),Color("ecf7e8"),root)
-	badge = ui_label("",16,Color("347145"))
-	income.add_child(badge)
-	var task := ui_panel(Vector2(24,128),Vector2(254,106),Color("f7f2df"),root)
-	var tasks := VBoxContainer.new()
-	task.add_child(tasks)
-	tasks.add_child(ui_label("YOUR NEXT ADVENTURE",11,Color("738269")))
-	quest = ui_label("Bring home an egg",18,Color("244459"))
-	tasks.add_child(quest)
-	var progress := ProgressBar.new()
-	progress.custom_minimum_size = Vector2(214,8)
-	progress.value = 35
-	progress.show_percentage = false
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = Color("ebbb55")
-	fill.corner_radius_top_left = 4
-	fill.corner_radius_top_right = 4
-	fill.corner_radius_bottom_left = 4
-	fill.corner_radius_bottom_right = 4
-	progress.add_theme_stylebox_override("fill",fill)
-	tasks.add_child(progress)
-	for i in range(3):
-		var item := ui_panel(Vector2(24,258+i*68),Vector2(114,56),Color(["487bab","d59845","8669ae"][i]),root)
-		item.add_child(ui_label(["PETS","SHOP","INDEX"][i],17))
-		item.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pet_label = ui_label("",13,Color("d4e8ee"))
-	pet_label.position = Vector2(25,483)
-	root.add_child(pet_label)
-	var keys := ui_panel(Vector2(423,620),Vector2(434,70),Color("173653"),root)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation",12)
-	keys.add_child(row)
-	for text in ["1  PETS","2  EGGS","3  BASE","E  USE"]:
-		var tile := ui_panel(Vector2.ZERO,Vector2(88,44),Color("35566e"),row)
-		tile.add_child(ui_label(text,13,Color("f4f6e9")))
-	var sprint := ui_panel(Vector2(1084,626),Vector2(172,62),Color("e66d4d"),root)
-	sprint.add_child(ui_label("SHIFT  RUN",20))
-	hint = ui_label("",17)
+	hud_root = Control.new()
+	hud_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(hud_root)
+	# Compact platform-like navigation. Original icons, no platform branding.
+	for i in range(5):
+		var nav := hud_button(["≡","☰","…","▣","⚙"][i],Vector2(16+i*58,14),Vector2(50,50),Color("202428"),_open_menu.bind("Settings"))
+		for state in ["normal","hover","pressed"]:
+			var style := nav.get_theme_stylebox(state) as StyleBoxFlat
+			style.set_corner_radius_all(25)
+			style.set_border_width_all(0)
+	hud_button("Shop",Vector2(18,-116),Vector2(190,76),Color("62e80c"),_open_menu.bind("Shop"),Control.PRESET_CENTER_LEFT)
+	hud_button("Index",Vector2(18,-30),Vector2(190,76),Color("14c7f3"),_open_menu.bind("Index"),Control.PRESET_CENTER_LEFT)
+	slow_button = hud_button("",Vector2(18,61),Vector2(113,49),Color("43652a"),_toggle_slow,Control.PRESET_CENTER_LEFT)
+	var toggle := ColorRect.new()
+	toggle.color = Color("8bff00")
+	toggle.position = Vector2(9,9)
+	toggle.size = Vector2(32,31)
+	toggle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slow_button.add_child(toggle)
+	var slow_text := ink_label("Slow Mode",24)
+	hud_root.add_child(slow_text)
+	slow_text.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
+	slow_text.position += Vector2(145,65)
+	# Cash and movement progression at lower left, as in the real layout.
+	badge = ink_label("",48,Color("ff4e89"))
+	hud_root.add_child(badge)
+	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	badge.position += Vector2(82,-146)
+	hud = ink_label("",48,Color("46ff21"))
+	hud_root.add_child(hud)
+	hud.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	hud.position += Vector2(82,-77)
+	for kind in ["shoe","cash"]:
+		var icon := TextureRect.new()
+		hud_root.add_child(icon)
+		icon.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+		icon.position.x = 12
+		icon.offset_top = badge.offset_top if kind=="shoe" else hud.offset_top
+		icon.size = Vector2(64,64)
+		icon.texture = load("res://assets/icons/"+kind+".svg")
+		icon.offset_bottom = icon.offset_top+64
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	# Inventory scales around the bottom center instead of a decorative wide panel.
+	for i in range(10):
+		var slot := hud_button("",Vector2(-315+i*64,-68),Vector2(59,61),Color(0.12,.16,.1,.6),_select_slot.bind(i),Control.PRESET_CENTER_BOTTOM)
+		slot.add_theme_font_size_override("font_size",16)
+		slot.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var number := ink_label(str((i+1)%10),13)
+		number.position = Vector2(4,1)
+		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(number)
+		var icon := TextureRect.new()
+		icon.position = Vector2(12,19)
+		icon.size = Vector2(36,36)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.texture = load("res://assets/icons/"+["stick","egg","egg","cat","fox","crocodile","mammoth","chicken","dragon","paw"][i]+".svg")
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(icon)
+	# Right-side inventory tabs.
+	hud_button("EGG",Vector2(-100,-68),Vector2(82,82),Color("f06455"),_open_menu.bind("Eggs"),Control.PRESET_CENTER_RIGHT).add_theme_font_size_override("font_size",22)
+	hud_button("PETS",Vector2(-100,26),Vector2(82,82),Color("f5b456"),_open_menu.bind("Pets"),Control.PRESET_CENTER_RIGHT).add_theme_font_size_override("font_size",20)
+	event_label = ink_label("",30)
+	hud_root.add_child(event_label)
+	event_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	event_label.position += Vector2(-245,-65)
+	# A local leaderboard shows real session data, rather than fabricated players.
+	var board := PanelContainer.new()
+	hud_root.add_child(board)
+	board.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	board.position += Vector2(-344,16)
+	board.size = Vector2(325,76)
+	var board_style := StyleBoxFlat.new()
+	board_style.bg_color = Color(0.06,.10,.12,.65)
+	board_style.set_corner_radius_all(4)
+	board_style.content_margin_left = 14
+	board_style.content_margin_top = 9
+	board.add_theme_stylebox_override("panel",board_style)
+	leaderboard = ink_label("",15)
+	board.add_child(leaderboard)
+	hint = ink_label("",24)
+	hud_root.add_child(hint)
+	hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	hint.position += Vector2(-550,-133)
+	hint.size = Vector2(1100,48)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.position = Vector2(310,567)
-	hint.size = Vector2(660,44)
-	hint.add_theme_color_override("font_shadow_color",Color("183d51"))
-	hint.add_theme_constant_override("shadow_offset_y",2)
-	root.add_child(hint)
-	var controls := ui_label("WASD  MOVE    SPACE  JUMP    RMB  CAMERA    ESC  PAUSE",11,Color("ecf7f6"))
-	controls.position = Vector2(427,700)
-	root.add_child(controls)
-	pause_panel = ui_panel(Vector2(420,230),Vector2(440,230),Color("173653"),root)
-	var contents := VBoxContainer.new()
-	pause_panel.add_child(contents)
-	contents.add_child(ui_label("PAUSED",30))
-	contents.add_child(ui_label("Progress saves automatically.",18))
-	var resume := Button.new()
-	resume.text = "Resume"
-	resume.pressed.connect(func(): paused=false; pause_panel.hide())
-	contents.add_child(resume)
-	pause_panel.hide()
+	menu_panel = PanelContainer.new()
+	hud_root.add_child(menu_panel)
+	menu_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	menu_panel.position += Vector2(-330,-230)
+	menu_panel.size = Vector2(660,460)
+	var menu_style := StyleBoxFlat.new()
+	menu_style.bg_color = Color("354450")
+	menu_style.set_border_width_all(5)
+	menu_style.border_color = Color("1d252b")
+	menu_style.set_corner_radius_all(14)
+	menu_style.content_margin_left = 30
+	menu_style.content_margin_right = 30
+	menu_style.content_margin_top = 20
+	menu_style.content_margin_bottom = 20
+	menu_panel.add_theme_stylebox_override("panel",menu_style)
+	menu_body = VBoxContainer.new()
+	menu_body.add_theme_constant_override("separation",15)
+	menu_panel.add_child(menu_body)
+	menu_panel.hide()
+	pause_panel = menu_panel
 	_refresh_hud()
 
+func _toggle_slow() -> void:
+	slow_mode = not slow_mode
+	var toggle := slow_button.get_child(0) as ColorRect
+	toggle.position.x = 72 if slow_mode else 9
+	_notify("Slow Mode ON" if slow_mode else "Slow Mode OFF")
+
+func _select_slot(index: int) -> void:
+	selected_slot = index
+	_notify("Selected slot %d" % (index+1))
+
+func _open_menu(kind: String) -> void:
+	for child in menu_body.get_children():
+		menu_body.remove_child(child)
+		child.queue_free()
+	menu_body.add_child(ink_label(kind,38))
+	if kind == "Shop":
+		menu_body.add_child(ink_label("Spend earned coins on upgrades",21))
+		for speed in [true,false]:
+			var button := Button.new()
+			button.text = ("Upgrade Speed  $%d" % (100*(speed_level+1))) if speed else ("Expand Base  $%d" % (250*(base_level+1)))
+			button.custom_minimum_size.y = 60
+			button.add_theme_font_size_override("font_size",24)
+			button.pressed.connect(func(): _upgrade(speed); _open_menu("Shop"))
+			menu_body.add_child(button)
+	elif kind == "Index" or kind == "Pets":
+		menu_body.add_child(ink_label("Owned: %d / %d" % [pet_count,3+base_level*3],25))
+		menu_body.add_child(ink_label("Chicken • Cat • Crocodile\nDragon • Fox • Mammoth",24))
+		menu_body.add_child(ink_label("Income: $%d / second" % (pet_count*12),25,Color("6eff39")))
+	elif kind == "Eggs":
+		menu_body.add_child(ink_label("Carrying an egg" if carried!=null else "No egg carried",26))
+		menu_body.add_child(ink_label("Find a nest, press E, return to HATCH.\nRare eggs require Speed Lv.3.",22))
+	else:
+		menu_body.add_child(ink_label("WASD move • Space jump • Shift sprint\nRMB camera • Mouse wheel zoom\nE interact • Esc pause • F11 fullscreen",20))
+		var full := Button.new()
+		full.text = "Toggle fullscreen"
+		full.pressed.connect(_fullscreen)
+		menu_body.add_child(full)
+	var close := Button.new()
+	close.text = "Close"
+	close.custom_minimum_size.y = 50
+	close.pressed.connect(func(): menu_panel.hide(); paused=false)
+	menu_body.add_child(close)
+	menu_panel.show()
+
+func _fullscreen() -> void:
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
+
 func _refresh_hud() -> void:
-	hud.text = "$  " + str(coins)
-	badge.text = "+$%d / SEC   •   LV.%d" % [pet_count*12,speed_level+1]
-	pet_label.text = "COLLECTION  %d / %d" % [pet_count,3+base_level*3]
-	quest.text = "Return to your base" if carried != null else "Bring home an egg"
-	var status := message if message_timer>0 or carried != null else "Explore the meadow. Find your next pet."
+	hud.text = "$"+str(coins)
+	badge.text = str(speed_level*100+100)
+	leaderboard.text = "People                 Money       Speed\nYou                       $%d         %d" % [coins,speed_level*100+100]
+	event_label.text = "in %dm %02ds" % [int(240-fmod(elapsed,240))/60,int(240-fmod(elapsed,240))%60]
+	hint.text = message if message_timer>0 or carried!=null else ""
 	if hatching>0:
-		status = "HATCHING... %d" % ceili(hatching)
-	hint.text = status
+		hint.text = "HATCHING... %d" % ceili(hatching)
 
 func _prepare_preview() -> void:
-	# Preview uses the actual game scene, models, renderer and HUD.
-	# Stage an egg-carrying moment without loading or saving player progress.
 	preview_camera = true
-	player.position = Vector3(0,0,7)
-	model.rotation.y = PI - 0.38
-	arm_left.rotation.x = -1.0
-	arm_right.rotation.x = -1.0
-	leg_left.rotation.x = 0.35
-	leg_right.rotation.x = -0.35
-	carried = nests[0].egg
-	nests[0].egg = null
-	carried.reparent(model)
-	carried.position = Vector3(0,1.85,-1.02)
-	fox.position = Vector3(3.8,0,5.2)
-	fox.look_at(Vector3(0,0,7))
-	var companion := asset("dragon",Vector3(1.4,0,6.5))
-	companion.rotation.y = PI - 0.38
-	for i in range(3):
-		if i >= pets.size():
+	player.position = Vector3(0,0,34)
+	model.rotation.y = PI-.15
+	for i in range(6):
+		if i>=pets.size():
 			_add_pet(i)
 	coins = 2450
-	pet_count = 3
-	speed_level = 2
-	camera.position = Vector3(-8.5,5.4,0)
-	camera.look_at(Vector3(0,1.7,10.3))
-	message = "Bring your egg home. A new friend is waiting!"
+	pet_count = 6
+	base_level = 1
+	speed_level = 3
+	camera.position = Vector3(7,8.5,47)
+	camera.look_at(Vector3(0,1.8,33))
+	message_timer = 0
 	_refresh_hud()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -636,6 +757,16 @@ func _notification(what: int) -> void:
 
 func _smoke_test() -> void:
 	# Integration test using real scene nodes and gameplay methods.
+	await get_tree().process_frame
+	for child in hud_root.get_children():
+		if child is Button and child.text=="Shop":
+			child.pressed.emit()
+	_check(menu_panel.visible,"Shop button did not open the menu")
+	menu_panel.hide()
+	_toggle_slow()
+	_check(slow_mode,"Slow mode button failed")
+	_toggle_slow()
+	_check(not slow_mode,"Slow mode toggle failed")
 	player.position = nests[0].pos
 	_interact()
 	_check(carried != null, "Egg pickup failed")
@@ -669,7 +800,7 @@ func _smoke_test() -> void:
 	_update_game(0.01)
 	_check(carried == null and player.position == home, "Guardian catch failed")
 	if smoke_failures == 0:
-		print("EGG_DASH_SMOKE_PASS: pickup, hatch, income, upgrades, rare gate, rare bonus, guardian")
+		print("EGG_DASH_SMOKE_PASS: pickup, hatch, income, upgrades, rare gate, rare bonus, guardian, UI menus, slow mode")
 	get_tree().quit(0 if smoke_failures == 0 else 1)
 
 func _check(condition: bool, error: String) -> void:

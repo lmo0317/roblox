@@ -37,39 +37,31 @@ def export(name):
  bpy.ops.export_scene.gltf(filepath=str(out/(name+'.glb')),export_format='GLB',export_yup=True,export_cameras=False,export_lights=False)
 begin();cube('Unit',(0,0,0),(1,1,1),'ffffff',.045);export('soft_box')
 begin()
-cube('Hoodie',(0,1.7,0),(1.18,1.16,.72),'ef493c',.11)
-cube('Hood hem',(0,1.17,0),(1.18,.17,.74),'cd342d',.04)
-cube('Hood',(0,2.13,.1),(.85,.35,.75),'dc3c31',.13)
-cube('Pocket',(0,1.5,-.385),(.65,.33,.08),'ff6751',.06)
-rod('Pocket seam',(-.22,1.55,-.44),(.22,1.55,-.44),.012,'d73d30')
-cyl('Neck',(0,2.32,0),.26,.24,'ffd357')
-cube('Head',(0,2.72,0),(.88,.86,.84),'ffdb59',.16)
-for x in [-.2,.2]:
- sphere('Eye',(x,2.77,-.417),(.048,.07,.022),'253343')
- sphere('Eye glint',(x-.012,2.795,-.437),(.013,.018,.008),'ffffff')
-# smile curve as tiny connected rods
+cube('Torso',(0,1.75,0),(1.25,1.3,.66),'171c26',.07)
+cube('Blue shirt',(0,1.78,-.35),(.48,1.1,.035),'2580d4',.01)
+cube('Collar',(0,2.31,-.36),(.47,.15,.05),'174f8b',.025)
+cyl('Neck',(0,2.43,0),.24,.22,'f0eff4')
+cyl('Head',(0,2.87,0),.43,.84,'f0eff4',vertices=32)
+for x in [-.17,.17]:sphere('Eye',(x,2.95,-.40),(.044,.07,.022),'111623')
 for i in range(6):
- a=-.17+i*.34/6;b=-.17+(i+1)*.34/6
- rod('Smile',(a,2.52+.10*(a/.17)**2,-.429),(b,2.52+.10*(b/.17)**2,-.429),.016,'253343')
-cube('Cap',(0,3.1,.025),(.94,.24,.88),'273247',.13)
-cube('Brim',(0,3.02,-.37),(.98,.10,.65),'273247',.045)
-cube('Cap badge',(0,3.14,-.43),(.15,.10,.015),'ffd151',.025)
-cube('Backpack',(0,1.75,.53),(.8,.9,.4),'22466f',.14)
-cube('Backpack pocket',(0,1.58,.77),(.58,.35,.12),'346493',.07)
-cube('Backpack clasp',(0,1.85,.77),(.18,.16,.045),'ffd151',.025)
-for x in [-.4,.4]:cube('Strap',(x,1.86,.40),(.12,.9,.1),'15324f',.03)
-for side,x in [('Left',-.88),('Right',.88)]:
- pivot=empty(side+'Arm',(x,2.17,0))
- cube('Sleeve',(0,-.35,0),(.53,.72,.67),'ef493c',.08,pivot)
- cube('Cuff',(0,-.69,0),(.54,.14,.68),'ce3b30',.03,pivot)
- cube('Hand',(0,-.94,0),(.52,.42,.64),'ffdb59',.085,pivot)
+ a=-.15+i*.30/6;b=-.15+(i+1)*.30/6
+ rod('Smile',(a,2.67+.10*(a/.15)**2,-.412),(b,2.67+.10*(b/.15)**2,-.412),.015,'111623')
+cube('Hair crown',(0,3.27,.04),(.89,.25,.85),'955c28',.12)
+for i in range(7):
+ x=-.36+i*.12
+ strand=cube('Swept fringe',(x,3.20-abs(x)*.28,-.35),(.18,.40,.23),['ac7534','c18b44','865021'][i%3],.065)
+ strand.rotation_euler.y=.2
+ strand.rotation_euler.z=.25
+for x in [-.39,.39]:cube('Sideburn',(x,3.02,.0),(.13,.40,.60),'865021',.05)
+for side,x in [('Left',-.89),('Right',.89)]:
+ pivot=empty(side+'Arm',(x,2.30,0))
+ cube('Sleeve',(0,-.47,0),(.53,.94,.62),'171c26',.07,pivot)
+ cube('Hand',(0,-1.08,0),(.48,.35,.58),'f0eff4',.06,pivot)
 for side,x in [('Left',-.32),('Right',.32)]:
- pivot=empty(side+'Leg',(x,1.15,0))
- cube('Jeans',(0,-.42,0),(.58,.82,.64),'347bd0',.07,pivot)
- cube('Knee seam',(0,-.55,-.33),(.4,.02,.02),'629fea',.008,pivot)
- cube('Shoe',(0,-1.0,-.10),(.61,.32,.82),'f3f6ff',.07,pivot)
- cube('Sole',(0,-1.14,-.10),(.62,.08,.84),'c7d6e6',.02,pivot)
- cube('Shoe trim',(0,-.94,-.52),(.40,.1,.02),'263f61',.01,pivot)
+ pivot=empty(side+'Leg',(x,1.16,0))
+ cube('Jeans',(0,-.45,0),(.57,.88,.62),'20232d',.04,pivot)
+ cube('Shoe',(0,-1.02,-.08),(.59,.29,.78),'f2f3f8',.05,pivot)
+ cube('Sole',(0,-1.15,-.08),(.60,.06,.79),'d5dbe7',.01,pivot)
 export('avatar')
 begin()
 cube('Body',(0,1.1,.0),(1.65,1.1,2.3),'ed852c',.25)
@@ -140,4 +132,40 @@ for j in range(3):
   a=i*math.tau/18+j*.11;b=a+.50;r=1.02-j*.06
   rod('Woven straw',(math.cos(a)*r,.17+j*.1,math.sin(a)*r),(math.cos(b)*r,.19+j*.1,math.sin(b)*r),.065,['e2b66d','c89450','f1ca83'][j])
 export('nest')
+begin()
+cube('Chicken body',(0,.8,0),(1.2,1.2,1.4),'fff2d9',.22)
+cube('Head',(0,1.55,-.50),(.9,.9,.8),'fff7e7',.15)
+for x in [-.26,.26]:sphere('Eye',(x,1.67,-.92),(.06,.09,.04),'20252c')
+cyl('Beak',(0,1.40,-1.0),.25,.4,'efa535',vertices=4,r2=0).rotation_euler.x=math.pi/2
+for z in [-.65,-.35,-.05]:sphere('Comb',(0,2.08,z),(.16,.25,.20),'dc4141')
+for x in [-.55,.55]:cube('Wing',(x,.9,.1),(.30,.70,.9),'e3d1ae',.09)
+for x in [-.3,.3]:
+ cyl('Leg',(x,.16,0),.08,.40,'e8a73d')
+ cube('Foot',(x,.05,-.15),(.32,.10,.45),'e8a73d',.02)
+export('chicken')
+begin()
+cube('Croc body',(0,.55,.1),(1.4,.9,2.6),'548044',.12)
+cube('Head',(0,.8,-1.6),(1.5,.7,1.5),'66964e',.12)
+cube('Mouth',(0,.55,-1.8),(1.47,.10,1.3),'e0ce9d',.025)
+for x in [-.5,.5]:
+ sphere('Eye mount',(x,1.18,-1.1),(.25,.25,.25),'66964e')
+ sphere('Eye',(x,1.2,-1.31),(.08,.11,.04),'142522')
+ for z in [-.7,.8]:cube('Leg',(x*1.5,.25,z),(.45,.45,.8),'466d3c',.05)
+for z in [-.5,0,.5,1]:cyl('Spine',(0,1.13,z),.22,.40,'365734',vertices=3,r2=0)
+rod('Tail',(0,.6,1.2),(0,.45,2.5),.35,'548044')
+export('crocodile')
+begin()
+cube('Body',(0,1.5,0),(2.0,2.0,2.6),'776b92',.25)
+cube('Head',(0,2.0,-1.3),(1.9,1.8,1.4),'8d7da4',.22)
+for x in [-.9,.9]:
+ cube('Ear',(x,2.0,-1.1),(.35,1.4,1.0),'a593bb',.16)
+ sphere('Eye',(x*.72,2.2,-2.02),(.09,.12,.04),'212735')
+ rod('Tusk',(x*.65,1.5,-1.9),(x*.85,1.9,-2.6),.13,'fff5d2')
+rod('Trunk upper',(0,1.9,-1.95),(0,.9,-2.3),.30,'8d7da4')
+rod('Trunk tip',(0,.9,-2.3),(0,.45,-2.9),.24,'8d7da4')
+for x in [-.6,.6]:
+ for z in [-.75,.8]:
+  cube('Leg',(x,.5,z),(.7,1.0,.8),'6d6286',.1)
+  cube('Toenails',(x,.14,z-.42),(.48,.20,.07),'d5c7dd',.03)
+export('mammoth')
 print('ALL_MODELS_EXPORTED')
